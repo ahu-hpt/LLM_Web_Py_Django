@@ -368,4 +368,4 @@ git push -u origin main
 
 ## 许可证
 
-如需开源，建议在仓库根目录添加 `LICENSE` 文件（如 MIT）。本项目仅供学习与内部使用。
+本项目基于 [MIT License](LICENSE) 开源，可自由使用、修改和分发，保留版权声明即可。
