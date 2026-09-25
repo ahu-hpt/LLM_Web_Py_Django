@@ -1,0 +1,144 @@
+{% extends "chat/base.html" %}
+{% block title %}模型设置 · 大模型对话台{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+    .settings-card {
+        width: 100%; max-width: 640px; margin: 24px auto; background: var(--panel);
+        border: 1px solid var(--border); border-radius: var(--radius); padding: 28px;
+    }
+    .settings-card h2 { font-size: 18px; margin-bottom: 4px; }
+    .settings-card .sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; line-height: 1.7; }
+    .row-2 { display: flex; gap: 14px; }
+    .row-2 label.field { flex: 1; }
+    .banner { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 18px; }
+    .banner.ok { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .banner.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    #testResult { display: none; margin-top: 14px; font-size: 13px; border-radius: 8px; padding: 10px 14px; }
+    #testResult.ok { display: block; background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    #testResult.fail { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; white-space: pre-wrap; }
+    .actions { display: flex; gap: 10px; margin-top: 8px; }
+    code { background: #f3f4f8; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-card">
+    <h2>模型接口设置</h2>
+    <p class="sub">
+        填写你的大模型 API 信息，接口需兼容 OpenAI 协议（<code>/v1/chat/completions</code>）。<br>
+        适用于 vLLM、Ollama、Xinference、LocalAI、One-API 以及各云厂商兼容端点。
+    </p>
+
+    {% if saved %}<div class="banner ok">✓ 配置已保存。</div>{% endif %}
+    {% if error %}<div class="banner err">✗ {{ error }}</div>{% endif %}
+
+    <form method="post" id="settingsForm">
+        {% csrf_token %}
+        <label class="field">
+            <span class="field-label">接口地址（Base URL）</span>
+            <input type="text" name="base_url" value="{{ config.base_url }}" placeholder="http://localhost:8000/v1" required>
+            <span class="help">示例：<code>http://localhost:8000/v1</code>（vLLM）、<code>http://localhost:11434/v1</code>（Ollama）、<code>https://api.openai.com/v1</code></span>
+        </label>
+
+        <label class="field">
+            <span class="field-label">API Key</span>
+            <input type="password" name="api_key" value="{{ config.api_key }}" placeholder="本地部署无需鉴权可留空" autocomplete="off">
+            <span class="help">仅保存在本地数据库中，以 Bearer Token 方式随请求发送</span>
+        </label>
+
+        <label class="field">
+            <span class="field-label">模型名称（Model ID）</span>
+            <input type="text" name="model" value="{{ config.model }}" placeholder="qwen2.5-7b-instruct" required>
+            <span class="help">模型服务中实际加载的模型 ID，例如 <code>qwen2.5-7b-instruct</code>、<code>gpt-4o-mini</code>、<code>deepseek-chat</code></span>
+        </label>
+
+        <div class="row-2">
+            <label class="field">
+                <span class="field-label">Temperature</span>
+                <input type="number" name="temperature" step="0.1" min="0" max="2" value="{{ config.temperature }}">
+                <span class="help">0 ~ 2，值越小回答越稳定</span>
+            </label>
+            <label class="field">
+                <span class="field-label">最大 Token 数</span>
+                <input type="number" name="max_tokens" min="1" max="131072" value="{{ config.max_tokens|default_if_none:'' }}" placeholder="2048">
+                <span class="help">留空则由模型服务决定</span>
+            </label>
+        </div>
+
+        <label class="field">
+            <span class="field-label">系统提示词（System Prompt）</span>
+            <textarea name="system_prompt" rows="3" placeholder="你是一个乐于助人的中文 AI 助手。">{{ config.system_prompt }}</textarea>
+        </label>
+
+        <div class="actions">
+            <button type="submit" class="btn btn-primary">保存配置</button>
+            <button type="button" class="btn btn-ghost" id="testBtn">测试连接</button>
+            <a href="{% url 'index' %}" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center;">返回对话</a>
+        </div>
+        <div id="testResult"></div>
+    </form>
+</div>
+
+<script>
+(function () {
+    const testBtn = document.getElementById("testBtn");
+    const resultEl = document.getElementById("testResult");
+    const form = document.getElementById("settingsForm");
+
+    function getCsrfToken() {
+        const row = document.cookie.split("; ").find(r => r.startsWith("csrftoken="));
+        return row ? decodeURIComponent(row.split("=")[1]) : "";
+    }
+
+    testBtn.addEventListener("click", async () => {
+        const data = {
+            base_url: form.base_url.value.trim(),
+            api_key: form.api_key.value.trim(),
+            model: form.model.value.trim()
+        };
+        if (!data.base_url || !data.model) {
+            resultEl.className = "fail";
+            resultEl.textContent = "请先填写接口地址和模型名称";
+            return;
+        }
+        resultEl.className = "";
+        resultEl.style.display = "block";
+        resultEl.style.background = "#f3f4f8";
+        resultEl.style.color = "#374151";
+        resultEl.textContent = "正在连接，请稍候…";
+        testBtn.disabled = true;
+        try {
+            const resp = await fetch("{% url 'test_api' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+                body: JSON.stringify(data)
+            });
+            if (resp.status === 401) {
+                alert("登录状态已过期，请重新登录");
+                location.href = "{% url 'login' %}?next=" + encodeURIComponent(location.pathname);
+                return;
+            }
+            const result = await resp.json();
+            resultEl.style.background = "";
+            resultEl.style.color = "";
+            if (result.ok) {
+                resultEl.className = "ok";
+                resultEl.textContent = "✓ " + result.message;
+            } else {
+                resultEl.className = "fail";
+                resultEl.textContent = "✗ " + result.error;
+            }
+        } catch (err) {
+            resultEl.style.background = "";
+            resultEl.style.color = "";
+            resultEl.className = "fail";
+            resultEl.textContent = "✗ 请求失败：" + err.message;
+        } finally {
+            testBtn.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}

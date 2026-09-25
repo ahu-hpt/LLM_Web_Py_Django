@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · 大模型对话台</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #eef2ff 0%, #f5f7fb 60%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            width: 360px;
+            background: #fff;
+            border: 1px solid #e3e8f0;
+            border-radius: 14px;
+            padding: 34px 30px 28px;
+            box-shadow: 0 12px 40px rgba(37, 99, 235, .10);
+        }
+        .brand {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #2563eb;
+            margin-bottom: 6px;
+        }
+        .sub { text-align: center; font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+        .error-box {
+            background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+            border-radius: 8px; padding: 9px 12px; font-size: 13px; margin-bottom: 16px;
+        }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #374151; }
+        input {
+            width: 100%; border: 1px solid #e3e8f0; border-radius: 8px;
+            padding: 10px 12px; font-size: 14px; outline: none; margin-bottom: 16px;
+        }
+        input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+        button {
+            width: 100%; border: none; border-radius: 8px; padding: 11px;
+            background: #2563eb; color: #fff; font-size: 15px; cursor: pointer;
+        }
+        button:hover { background: #1d4ed8; }
+        .foot { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 18px; }
+    </style>
+</head>
+<body>
+    <form class="login-card" method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <div class="brand">大模型对话台</div>
+        <div class="sub">请登录后使用</div>
+
+        {% if form.errors %}
+        <div class="error-box">用户名或密码不正确，请重试。</div>
+        {% endif %}
+
+        <label for="id_username">用户名</label>
+        <input type="text" name="username" id="id_username" autofocus autocomplete="username" required>
+
+        <label for="id_password">密码</label>
+        <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit">登 录</button>
+        <div class="foot">仅限授权用户访问</div>
+    </form>
+</body>
+</html>
